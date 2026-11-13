@@ -1,5 +1,6 @@
 
 import pool from '../config/db.js';
+import { observeSqlQuery } from '../metrics/databaseMetrics.js';
 
 export const productRepository = {
 
@@ -138,7 +139,10 @@ export const productRepository = {
             Math.max(0, parseInt(offset, 10) || 0)
         );
 
-        const [rows] = await pool.execute(sql, params);
+        const [rows] = await observeSqlQuery(
+            'product_search',
+            () => pool.execute(sql, params)
+        );
 
         return rows;
     }

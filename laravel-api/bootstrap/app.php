@@ -1,4 +1,3 @@
-
 <?php
 
 use Illuminate\Foundation\Application;
@@ -14,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(\App\Http\Middleware\RecordPrometheusMetrics::class);
+        $middleware->append(\App\Http\Middleware\LogStructuredRequests::class);
+
         // Do not redirect unauthenticated API requests to a login page.
         $middleware->redirectGuestsTo(
             fn (Request $request) =>

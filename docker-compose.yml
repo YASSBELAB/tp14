@@ -1,0 +1,199 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local-root-password}
+      MYSQL_DATABASE: lab3_db
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./express-api/sql/create_database.sql:/docker-entrypoint-initdb.d/02-express-schema.sql:ro
+      - ./express-api/sql/seed_data.sql:/docker-entrypoint-initdb.d/03-express-seed.sql:ro
+      - ./monitoring/mysql-init/01-create-laravel-database.sql:/docker-entrypoint-initdb.d/01-laravel-database.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$${MYSQL_ROOT_PASSWORD}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+    networks:
+      - monitoring-net
+
+  spring-backend:
+    build:
+      context: ./spring-api
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/lab3_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local-root-password}
+      API_KEY: ${API_KEY:-local-dev-api-key}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    networks:
+      - monitoring-net
+
+  nodejs-backend:
+    build:
+      context: ./express-api
+    environment:
+      PORT: 3000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local-root-password}
+      DB_NAME: product_api
+      API_KEY: ${API_KEY:-local-dev-api-key}
+      JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-change-me}
+      LOG_LEVEL: info
+      NODE_OPTIONS: --experimental-loader=@opentelemetry/instrumentation/hook.mjs --import=./src/instrumentation.js
+      OTEL_SERVICE_NAME: nodejs-backend
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_NODE_ENABLED_INSTRUMENTATIONS: http,express,mysql2
+      OTEL_NODE_RESOURCE_DETECTORS: env,host,os,process
+      OTEL_LOG_LEVEL: info
+    depends_on:
+      mysql:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+    ports:
+      - "3001:3000"
+    networks:
+      - monitoring-net
+
+  laravel-backend:
+    build:
+      context: ./laravel-api
+    command: ["sh", "-c", "php artisan migrate --force && apache2-foreground"]
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: ${LARAVEL_APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: laravel_db
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local-root-password}
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      API_KEY: ${API_KEY:-local-dev-api-key}
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: info
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8000:80"
+    networks:
+      - monitoring-net
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - spring-backend
+      - nodejs-backend
+      - laravel-backend
+    networks:
+      - monitoring-net
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - tempo
+      - alert-sink
+    networks:
+      - monitoring-net
+
+  alert-sink:
+    image: python:3.12-alpine
+    container_name: alert-sink
+    command: ["python", "-u", "/app/server.py"]
+    ports:
+      - "8088:8080"
+    volumes:
+      - ./monitoring/alert-sink/server.py:/app/server.py:ro
+    networks:
+      - monitoring-net
+
+  loki:
+    image: grafana/loki:2.8.4
+    container_name: loki
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-data:/loki
+    networks:
+      - monitoring-net
+
+  tempo:
+    image: grafana/tempo:2.2.0
+    container_name: tempo
+    command: ["-target=all", "-config.file=/etc/tempo.yaml"]
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./monitoring/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    networks:
+      - monitoring-net
+
+  alloy:
+    image: grafana/alloy:v1.22.0
+    container_name: alloy
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - loki
+    networks:
+      - monitoring-net
+
+networks:
+  monitoring-net:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  alloy-data:
+  tempo-data:

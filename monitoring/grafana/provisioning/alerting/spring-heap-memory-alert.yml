@@ -1,0 +1,76 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: spring-jvm-memory
+    folder: Projet Backend - Observabilité
+    interval: 1m
+    rules:
+      - uid: jvmheap85
+        title: Spring JVM heap usage above 85 percent
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: >-
+                sum by (application) (jvm_memory_used_bytes{area="heap"})
+                /
+                sum by (application) (jvm_memory_max_bytes{area="heap"})
+              instant: true
+              range: false
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              refId: B
+              settings:
+                mode: dropNN
+              type: reduce
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0.85
+                    type: gt
+                  operator:
+                    type: and
+                    params: []
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              refId: C
+              type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        labels:
+          severity: critical
+          service: spring-backend-api
+        annotations:
+          summary: Spring JVM heap usage is above 85 percent
+          description: Spring JVM heap usage has remained above 85% for more than two minutes.
