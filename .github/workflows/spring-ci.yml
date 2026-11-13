@@ -69,7 +69,7 @@ jobs:
       # La condition if: always() garantit l'upload même en cas d'échec des tests
       - name: Upload Test Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: spring-test-results
           path: spring-api/target/surefire-reports/
