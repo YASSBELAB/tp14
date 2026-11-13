@@ -1,0 +1,11 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: Local Webhook
+    receivers:
+      - uid: local_webhook
+        type: webhook
+        settings:
+          url: http://alert-sink:8080/
+          httpMethod: POST
