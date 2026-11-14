@@ -2,6 +2,207 @@
 
 Ce dépôt contient les trois applications backend (Spring Boot, Express et Laravel) ainsi que leur pile de supervision Prometheus, Grafana, Loki, Alloy et Tempo.
 
+
+# LAB 14 – Complete Observability Architecture with Docker
+
+## 📌 Overview
+
+This laboratory focuses on implementing a complete observability architecture for the backend applications developed in previous labs.
+
+The objective is to centralize monitoring, metrics collection, visualization, and log management for three backend applications:
+
+- Spring Boot
+- Node.js / Express
+- PHP / Laravel
+
+The infrastructure is containerized and orchestrated using Docker Compose.
+
+## 🎯 Objectives
+
+- Collect application and system metrics using **Prometheus**.
+- Visualize metrics and monitor application health using **Grafana**.
+- Centralize application logs using **Grafana Loki**.
+- Collect and forward logs using **Grafana Alloy / Promtail**.
+- Configure a centralized observability infrastructure.
+- Orchestrate all monitoring services using Docker Compose.
+
+## 🏗️ Architecture
+
+The observability stack consists of the following components:
+
+| Component | Role |
+|---|---|
+| Spring Boot | Backend application |
+| Node.js / Express | Backend application |
+| Laravel | Backend application |
+| Prometheus | Metrics collection and time-series storage |
+| Grafana | Metrics visualization and dashboards |
+| Loki | Centralized log storage |
+| Grafana Alloy / Promtail | Log collection and forwarding |
+| Docker Compose | Infrastructure orchestration |
+
+### Observability pillars
+
+**1. Metrics**
+- CPU and memory usage.
+- HTTP request counts.
+- Request execution duration.
+- Application performance.
+
+**2. Logs**
+- Application events.
+- Errors and exceptions.
+- HTTP request logs.
+- Structured JSON logs.
+
+**3. Traces**
+- Request execution paths across application components.
+- Identification of bottlenecks and latency.
+- Understanding interactions between services.
+
+## 🛠️ Technologies
+
+- Docker
+- Docker Compose
+- Prometheus
+- Grafana
+- Grafana Loki
+- Grafana Alloy / Promtail
+- Spring Boot
+- Node.js
+- Express.js
+- PHP
+- Laravel
+- MySQL
+
+## 📋 Prerequisites
+
+Make sure the following tools are installed:
+
+- Docker Desktop
+- Docker Compose
+- Git
+- Postman, cURL, or Apache JMeter (for generating HTTP traffic)
+
+Verify Docker installation:
+
+```bash
+docker --version
+docker-compose --version
+```
+
+## 🚀 Getting Started
+
+### 1. Clone the repository
+
+```bash
+git clone YOUR_REPOSITORY_URL
+cd YOUR_PROJECT_FOLDER
+```
+
+### 2. Start the infrastructure
+
+```bash
+docker compose up -d --build
+```
+
+### 3. Check running containers
+
+```bash
+docker compose ps
+```
+
+### 4. View container logs
+
+```bash
+docker compose logs -f
+```
+
+### 5. Access monitoring interfaces
+
+| Service | URL |
+|---|---|
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 |
+| Loki | http://localhost:3100 |
+
+*Note: Access URLs and ports depend on the Docker Compose configuration.*
+
+## 📊 Monitoring Workflow
+
+1. Backend applications expose their metrics through dedicated `/metrics` endpoints.
+2. Prometheus periodically scrapes the exposed metrics.
+3. Grafana connects to Prometheus to visualize collected metrics.
+4. Grafana Alloy / Promtail collects application logs.
+5. Loki receives and stores centralized logs.
+6. Grafana provides a unified interface for exploring metrics and logs.
+
+## 🧪 Testing
+
+Generate HTTP traffic using Postman, cURL, or Apache JMeter to observe application activity.
+
+Example:
+
+```bash
+curl http://localhost:8081/api/products
+```
+
+Check the Prometheus targets:
+
+```text
+http://localhost:9090/targets
+```
+
+Verify that the configured application targets are successfully scraped.
+
+## 🐳 Docker Management
+
+Stop the infrastructure:
+
+```bash
+docker compose stop
+```
+
+Restart the infrastructure:
+
+```bash
+docker compose start
+```
+
+Stop and remove containers:
+
+```bash
+docker compose down
+```
+
+View resource consumption:
+
+```bash
+docker stats
+```
+
+## 📚 Key Concepts
+
+- Observability vs Monitoring
+- Metrics collection and scraping
+- Time-series databases
+- Centralized logging
+- Structured JSON logging
+- Prometheus exporters
+- Grafana dashboards
+- Loki log aggregation
+- Docker Compose orchestration
+
+## 👨‍💻 Author
+
+**Yassir Bellaachia**
+
+Software Development – Backend & DevOps
+
+---
+
+*LAB 14 – Observability | Docker | Prometheus | Grafana | Loki*
+
 Grafana affiche les sources de données configurées : Loki pour les logs, Prometheus pour les métriques et Tempo pour les traces.
 
 <img width="1279" height="636" alt="Screenshot 2026-11-13 182159" src="https://github.com/user-attachments/assets/a7b1684b-90b1-459f-923a-d1db8f2ddd2b" />
